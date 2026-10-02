@@ -3,6 +3,7 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![No dependencies](https://img.shields.io/badge/deps-zero%20%28stdlib%20only%29-brightgreen.svg)]()
+[![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey.svg)]()
 
 A reflected XSS scanner with zero dependencies. It injects unique, inert
 canary payloads into each URL query parameter, fetches the page, and tells
@@ -10,6 +11,27 @@ you **where** each value is reflected: inside a `<script>` block, inside a
 quoted attribute, inside an HTML tag, as plain text, or HTML-encoded.
 
 Detection only. It finds reflection contexts; it does not exploit anything.
+
+## Contents
+
+- [Screenshots](#screenshots)
+- [Features](#features)
+- [Install](#install)
+- [Usage](#usage)
+- [How context detection works](#how-context-detection-works)
+- [Exit codes](#exit-codes)
+- [Ethical use](#ethical-use)
+- [License](#license)
+
+## Screenshots
+
+Scan against the bundled local test target:
+
+![pentrix-xss scan results](docs/images/scan-results.png)
+
+Full CLI help:
+
+![pentrix-xss help](docs/images/help.png)
 
 ## Features
 
@@ -28,29 +50,10 @@ Detection only. It finds reflection contexts; it does not exploit anything.
   placeholder).
 - Python 3 standard library only. No pip install, no virtualenv.
 
-## How context detection works
-
-1. The query string is parsed and each parameter is tested **one at a time**:
-   its value is replaced with the canary payload while the others stay
-   untouched.
-2. The page is fetched with `urllib` and decoded using the charset from the
-   `Content-Type` header (UTF-8 fallback).
-3. Every occurrence of the exact canary string is located in the response and
-   classified structurally:
-   - **Inside `<script>` block:** the offset falls within a
-     `<script>...</script>` span.
-   - **Inside a quoted attribute:** the nearest `<` before the offset has no
-     matching `>` yet (we are inside a tag), and a quote-state walk over the
-     tag text shows we are inside `"..."` or `'...'`.
-   - **Inside an HTML tag:** inside a tag but outside any quoted value.
-   - **Plain HTML text:** none of the above.
-   - **HTML-encoded:** the raw canary is absent but its `html.escape`d form
-     (including common `&#39;` / `&#34;` variants) is present.
-
 ## Install
 
 ```bash
-git clone <repo-url> pentrix-xss
+git clone https://github.com/mizazhaider-ceh/pentrix-xss.git
 cd pentrix-xss
 python3 xss.py --help
 ```
@@ -78,7 +81,11 @@ printf '{CANARY}<svg>\n{CANARY}"onfocus="\n' > my_payloads.txt
 python3 xss.py "https://target.example/search?q=test" --payloads my_payloads.txt
 ```
 
-Exit codes: `0` = scan completed, `1` = scan failed, `2` = bad arguments.
+Print the version:
+
+```bash
+python3 xss.py --version
+```
 
 ### Real example
 
@@ -136,6 +143,31 @@ Error: no query parameters found in the URL. Add at least one, e.g. ?q=test, so 
 $ python3 xss.py "http://127.0.0.1:8931/plain?q=a"
 [!] 'q': ERROR: non-HTML response (Content-Type: text/plain). Reflection check skipped.
 ```
+
+## How context detection works
+
+1. The query string is parsed and each parameter is tested **one at a time**:
+   its value is replaced with the canary payload while the others stay
+   untouched.
+2. The page is fetched with `urllib` and decoded using the charset from the
+   `Content-Type` header (UTF-8 fallback).
+3. Every occurrence of the exact canary string is located in the response and
+   classified structurally:
+   - **Inside `<script>` block:** the offset falls within a
+     `<script>...</script>` span.
+   - **Inside a quoted attribute:** the nearest `<` before the offset has no
+     matching `>` yet (we are inside a tag), and a quote-state walk over the
+     tag text shows we are inside `"..."` or `'...'`.
+   - **Inside an HTML tag:** inside a tag but outside any quoted value.
+   - **Plain HTML text:** none of the above.
+   - **HTML-encoded:** the raw canary is absent but its `html.escape`d form
+     (including common `&#39;` / `&#34;` variants) is present.
+
+## Exit codes
+
+- `0`: scan completed
+- `1`: scan failed (network error, no parameters, unreadable payload file)
+- `2`: bad arguments
 
 ## Ethical use
 
